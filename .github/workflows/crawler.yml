@@ -2,7 +2,7 @@ name: Hot News Crawler
 
 on:
   schedule:
-    - cron: "7 1-13 * * 1-7"   # 每天 09:07–21:07 CST，每小时一次
+    - cron: "7 1-13 * * *"   # 每天 09:07–21:07 CST，每小时一次
   workflow_dispatch:
 
 permissions:
