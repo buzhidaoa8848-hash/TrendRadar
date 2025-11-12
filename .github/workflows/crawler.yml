@@ -2,19 +2,28 @@ name: Hot News Crawler
 
 on:
   schedule:
-    # 我们使用的是 github 官方提供的资源来进行的推送，而每个账号的资源是限额的，为了不被官方判定为滥用而面临封号的风险，不建议比半小时更低
-    - cron: "7 1-13 * * 1-7" # 每小时整点运行一次(实际有偏差) 或者 "*/30 * * * *" (每半小时执行一次) 或者 "*/30 0-14 * * *"(每天早上 8 点到晚上 10 点期间，每半小时运行一次)
+    - cron: "7 1-13 * * 1-7"   # 每天 09:07–21:07 CST，每小时一次
   workflow_dispatch:
 
-# 添加权限设置
 permissions:
   contents: write
+
+concurrency:
+  group: hotnews-crawler
+  cancel-in-progress: true
 
 jobs:
   crawl:
     runs-on: ubuntu-latest
+    timeout-minutes: 12
 
     steps:
+      - name: Jitter to avoid herd (0–240s)
+        run: |
+          S=$((RANDOM % 240))
+          echo "Sleep ${S}s to avoid thundering herd"
+          sleep $S
+
       - name: Checkout repository
         uses: actions/checkout@v3
 
@@ -22,6 +31,13 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: "3.10"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('requirements.txt') }}
+          restore-keys: ${{ runner.os }}-pip-
 
       - name: Install dependencies
         run: |
@@ -31,19 +47,8 @@ jobs:
       - name: Verify required files
         run: |
           echo "🔍 检查必需的配置文件..."
-
-          if [ ! -f config/config.yaml ]; then
-            echo "❌ 错误: config/config.yaml 文件不存在"
-            echo "请参考项目文档创建配置文件"
-            exit 1
-          fi
-
-          if [ ! -f config/frequency_words.txt ]; then
-            echo "❌ 错误: config/frequency_words.txt 文件不存在"
-            echo "请参考项目文档创建频率词配置文件"
-            exit 1
-          fi
-
+          [ -f config/config.yaml ] || { echo "❌ 缺少 config/config.yaml"; exit 1; }
+          [ -f config/frequency_words.txt ] || { echo "❌ 缺少 config/frequency_words.txt"; exit 1; }
           echo "✅ 配置文件检查通过"
 
       - name: Run crawler
